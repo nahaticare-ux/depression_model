@@ -30,7 +30,7 @@ if st.button("예보 확인하기"):
         # 6. Physical_Activity (활동량: 평균 3시간)
         # 7. Stress_Level (스트레스: 입력값)
         
-        input_values = [21.0, 1.0, sleep_val, 5.0, social_val, 3.0, stress_val] 
+        input_values = [21, 1, sleep_val, 5.0, social_val, 3, stress_val] 
         
         # 모델 예측 (입력 데이터 개수가 정확히 7개인지 확인)
         domain = model.domain
@@ -53,3 +53,4 @@ if st.button("예보 확인하기"):
     except Exception as e:
         st.error(f"예측 중 오류 발생: {e}")
         st.info("입력 변수가 7개인지, 모델 파일이 최신인지 확인해 주세요.")
+
