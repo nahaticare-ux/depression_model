@@ -1,6 +1,7 @@
 import streamlit as st
 import Orange
 import pickle
+import numpy as np
 
 # 1. 모델 불러오기
 @st.cache_resource
@@ -11,37 +12,45 @@ def load_model():
 model = load_model()
 
 st.title("☁️ 마음기상청: 신경망(AI) 우울증 예보")
-st.write("우리 반 인공지능이 당신의 마음 데이터를 분석합니다.")
+st.write("모델이 요구하는 정확한 데이터 규격을 자동으로 맞춰 분석합니다.")
 
-# 2. 사용자 입력 (수업 시간에 직접 조절할 3개 지표)
+# 2. 사용자 입력 (수업용 핵심 데이터)
 stress = st.slider("스트레스 지수 (1~10)", 1, 10, 5)
-sleep = st.number_input("평균 수면 시간 (시간)", 0.0, 24.0, 7.0)
-social = st.number_input("SNS 사용 시간 (시간)", 0.0, 24.0, 2.0)
+sleep = st.slider("평균 수면 시간", 0.0, 15.0, 7.0)
+social = st.slider("SNS 사용 시간", 0.0, 15.0, 2.0)
 
-# 3. 분석 버튼
+# 3. 예측하기
 if st.button("마음 날씨 예보하기"):
     try:
-        # [핵심] 신경망 모델이 요구하는 8개의 통로를 순서대로 채웁니다.
-        # 순서: Age, Gender, Sleep, Study, Social, Physical, Stress, (Target Dummy)
-        # 이미지(16d820.png)의 순서를 100% 반영했습니다.
-        raw_data = [21.0, 1.0, float(sleep), 5.0, float(social), 3.0, float(stress), 0] # 총 8개
+        # [해결 포인트] 모델의 도메인에서 필요한 총 칸수를 읽어옵니다.
+        domain = model.domain
+        total_required = len(domain.variables) + len(domain.metas)
         
-        # 모델의 규격(Domain)에 맞춰 변환
-        inst = Orange.data.Instance(model.domain, raw_data)
+        # 넉넉하게 20칸짜리 기본 데이터를 만들고 0으로 채웁니다.
+        # 그 후, 우리가 받은 입력값들을 적절한 위치에 넣습니다.
+        test_data = [0] * 20
+        test_data[0] = 21 # Age (가정)
+        test_data[1] = 1  # Gender (가정)
+        test_data[2] = sleep
+        test_data[6] = stress
         
-        # 예측 및 확률 계산
+        # [핵심] 모델이 원하는 개수만큼만 딱 잘라서 보냅니다.
+        final_input = test_data[:total_required]
+        
+        inst = Orange.data.Instance(domain, final_input)
+        
+        # 예측 수행
         prediction = model(inst)
         probs = model(inst, ret=Orange.classification.Model.ValueProbs)
         
-        # [에러 방지] 확률값을 안전하게 숫자로 변환
+        # 결과 출력
         risk_percent = float(probs[1]) * 100
-
-        # 4. 결과 출력
         st.divider()
-        if prediction == 1 or risk_percent > 50:
-            st.error(f"⚠️ 현재 마음 날씨는 '흐림'입니다. (위험 확률: {risk_percent:.1f}%)")
+        if prediction == 1:
+            st.error(f"⚠️ 현재 마음 날씨: '흐림' (우울 위험 확률: {risk_percent:.1f}%)")
         else:
-            st.success(f"☀️ 현재 마음 날씨는 '맑음'입니다. (안정 확률: {100-risk_percent:.1f}%)")
+            st.success(f"☀️ 현재 마음 날씨: '맑음' (안정 확률: {100-risk_percent:.1f}%)")
 
     except Exception as e:
-        st.error(f"분석 중 오류 발생: {e}")
+        st.error(f"분석 실패: {e}")
+        st.info(f"모델 요구 칸수: {len(domain.variables) + len(domain.metas)}개")
