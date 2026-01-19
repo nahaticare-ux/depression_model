@@ -37,7 +37,7 @@ with col1:
 
 with col2:
     social = st.number_input("📱 SNS 사용 시간 (0~24시간)", 0.0, 24.0, 2.0)
-    st.write(" ") # 간격 맞춤용
+    st.write(" ") 
     st.write("💡 모든 수치를 입력 후 아래 버튼을 눌러주세요.")
 
 # 5. 분석 및 결과 출력
@@ -54,23 +54,26 @@ if st.button("마음 날씨 예보하기"):
         prediction = model(instance)
         probs = model(instance, ret=Orange.classification.Model.ValueProbs)
         
-        # [핵심] Scalar 변환 오류 방지 로직
-        # 결과값이 배열인 경우와 단일값인 경우를 모두 대응합니다.
+        # [해결] Scalar 변환 오류 방지: 리스트 형태의 결과값을 안전하게 숫자로 변환합니다.
         if hasattr(prediction, "__len__"):
             final_pred = int(prediction[0])
         else:
             final_pred = int(prediction)
             
-        risk_percent = float(probs[1]) * 100
+        # 확률값도 안전하게 리스트에서 추출합니다.
+        if hasattr(probs, "__len__"):
+            risk_percent = float(probs[1]) * 100
+        else:
+            risk_percent = float(probs) * 100
 
         # 결과 리포트 출력
         st.divider()
         if final_pred == 1:
             st.error(f"⚠️ 예보 결과: '흐림' (우울 위험 확률: {risk_percent:.1f}%)")
-            st.info("상태가 지속된다면 가까운 상담 센터를 방문해 보시는 건 어떨까요?")
+            st.info("조금 쉬어가도 괜찮아요. 친구나 상담 센터와 이야기를 나누어 보세요.")
         else:
             st.success(f"☀️ 예보 결과: '맑음' (마음 안정 확률: {100-risk_percent:.1f}%)")
-            st.balloons() # 축하 효과 추가
+            st.balloons() # 성공 축하 풍선 효과
 
     except Exception as error:
         st.error(f"분석 엔진 작동 중 오류가 발생했습니다: {error}")
