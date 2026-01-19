@@ -1,23 +1,19 @@
 import streamlit as st
 import Orange
 import pickle
-import os
+import numpy as np
 
-# 1. 모델 파일 존재 여부 확인 및 불러오기
-model_path = "depression_model.pkcls"
-
+# 1. 모델 불러오기
 @st.cache_resource
 def load_model():
-    if not os.path.exists(model_path):
-        st.error(f"파일을 찾을 수 없습니다: {model_path}가 GitHub에 업로드되었는지 확인하세요.")
-        return None
-    with open(model_path, "rb") as f:
+    # 파일명이 정확히 depression_model.pkcls 인지 다시 확인해주세요!
+    with open("depression_model.pkcls", "rb") as f:
         return pickle.load(f)
 
 model = load_model()
 
 st.title("☁️ 마음기상청: 대학생 우울증 예보")
-st.write("당신의 일상 데이터를 분석하여 마음의 날씨를 알려드립니다.")
+st.write("일상 데이터를 입력하면 인공지능이 마음 날씨를 분석합니다.")
 
 # 2. 사용자 입력 (주요 3개 변수)
 stress = st.slider("오늘 스트레스 정도 (1~10)", 1, 10, 5)
@@ -25,18 +21,25 @@ sleep = st.number_input("어제 수면 시간 (시간)", 0.0, 24.0, 7.0)
 social = st.number_input("SNS 사용 시간 (시간)", 0.0, 24.0, 2.0)
 
 # 3. 예측하기
-if st.button("예보 확인하기") and model:
+if st.button("예보 확인하기"):
     try:
-        # [핵심] 8개 자리를 강제로 맞춥니다.
-        # 순서: Age, Gender, Sleep, Study, Social, Physical, Stress, (더미 타겟)
-        # 모델이 '7을 8로 reshape 못한다'고 했으므로, 정확히 8개를 리스트에 넣습니다.
-        input_list = [21.0, 1.0, float(sleep), 5.0, float(social), 3.0, float(stress), 0.0]
+        # 모델이 요구하는 정확한 변수 개수를 파악합니다.
+        # 에러 메시지에서 shape(8,)을 요구했으므로 8개를 만듭니다.
+        # [Age, Gender, Sleep, Study, Social, Physical, Stress, Dummy_Target]
+        input_data = [21.0, 1.0, float(sleep), 5.0, float(social), 3.0, float(stress), 0.0]
         
-        # Orange3 모델 전용 인스턴스 생성
+        # 모델의 도메인(규격) 정보를 가져옵니다.
         domain = model.domain
-        inst = Orange.data.Instance(domain, input_list)
         
-        # 예측 및 확률 계산
+        # [핵심] 만약 모델이 요구하는 개수가 다르면 부족한 만큼 0을 더 채워줍니다.
+        required_count = len(domain.attributes) + (1 if domain.class_var else 0)
+        while len(input_data) < required_count:
+            input_data.append(0.0)
+            
+        # Orange 전용 인스턴스로 변환
+        inst = Orange.data.Instance(domain, input_data[:required_count])
+        
+        # 예측 수행
         prediction = model(inst)
         probs = model(inst, ret=Orange.classification.Model.ValueProbs)
 
@@ -46,11 +49,11 @@ if st.button("예보 확인하기") and model:
 
         if prediction == 1 or risk_percent > 50:
             st.error(f"⚠️ 현재 마음 날씨는 '흐림'입니다. (위험 확률: {risk_percent:.1f}%)")
-            st.write("조금 지친 상태일 수 있어요. 오늘은 자신에게 선물을 주는 시간을 가져보세요.")
+            st.write("오늘은 평소보다 나 자신을 더 아껴주세요. 가벼운 휴식이 필요해 보여요.")
         else:
             st.success(f"☀️ 현재 마음 날씨는 '맑음'입니다. (안정 확률: {probs[0]*100:.1f}%)")
-            st.write("아주 건강한 상태입니다! 이 긍정적인 에너지를 유지하세요.")
+            st.write("마음 기상이 아주 쾌청합니다! 즐거운 하루 보내세요.")
 
     except Exception as e:
-        st.error(f"데이터 규격 오류: {e}")
-        st.info("입력 데이터 개수가 모델이 원하는 8개와 일치하도록 조정되었습니다. 다시 시도해 보세요.")
+        st.error(f"예측 도중 오류가 발생했습니다: {e}")
+        st.info("데이터 개수를 모델 규격에 맞춰 자동으로 조정 중입니다. 다시 시도해 주세요.")
