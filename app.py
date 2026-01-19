@@ -1,6 +1,6 @@
 import streamlit as st
 import Orange
-import pickle
+
 import warnings
 
 # 1. 환경 차이로 인한 UserWarning 경고 메시지 숨기기
@@ -65,3 +65,4 @@ if st.button("마음 날씨 예보하기"):
     except Exception as e:
         # 가장 빈번한 'only length-1 arrays' 오류를 여기서 마지막으로 잡아줍니다.
         st.error(f"분석 엔진 오류: {e}")
+
