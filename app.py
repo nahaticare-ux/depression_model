@@ -1,44 +1,59 @@
 import streamlit as st
 import Orange
 import pickle
+import warnings
 
-# 1. 모델 불러오기
+# 1. 지저분한 환경 경고 메시지 숨기기
+warnings.filterwarnings("ignore")
+
+# 2. 모델 불러오기
 @st.cache_resource
 def load_model():
+    # 파일명이 depression_model.pkcls 인지 확인하세요!
     with open("depression_model.pkcls", "rb") as f:
         return pickle.load(f)
 
 model = load_model()
 
-st.title("☁️ 마음기상청: 신경망(AI) 분석기")
+# 3. 페이지 디자인
+st.set_page_config(page_title="마음기상청", page_icon="☁️")
+st.title("☁️ 마음기상청: 대학생 우울증 예보")
+st.write("인공지능(랜덤 포레스트)이 당신의 일상을 분석하여 마음의 날씨를 알려드립니다.")
 
-# 2. 입력 받기
-stress = st.slider("오늘 스트레스 (1~10)", 1, 10, 5)
-sleep = st.slider("수면 시간", 0.0, 15.0, 7.0)
-social = st.slider("SNS 사용", 0.0, 15.0, 2.0)
+# 4. 사용자 입력 받기 (수업용 핵심 변수 3개)
+st.divider()
+stress = st.slider("🔥 오늘 스트레스 정도 (1~10)", 1, 10, 5)
+sleep = st.number_input("😴 어제 수면 시간 (시간)", 0.0, 24.0, 7.0)
+social = st.number_input("📱 SNS 사용 시간 (시간)", 0.0, 24.0, 2.0)
 
-if st.button("예보 확인하기"):
+# 5. 분석하기 버튼
+if st.button("마음 날씨 예보하기"):
     try:
-        # [해결 1] 9개의 입구를 순서대로 채움 (7개 실데이터 + 2개 가짜데이터)
-        # 이미지(16d820.png) 기반 순서: Age, Gender, Sleep, Study, Social, Physical, Stress, (Target), (Meta)
-        raw_input = [21.0, 1.0, float(sleep), 5.0, float(social), 3.0, float(stress), 0, 0]
+        # [해결] 모델이 요구하는 9개의 칸을 정확한 순서로 채웁니다.
+        # 순서: Age(21), Gender(1), Sleep, Study(5), Social, Physical(3), Stress, Target(0), Meta(0)
+        input_list = [21.0, 1.0, float(sleep), 5.0, float(social), 3.0, float(stress), 0, 0]
         
-        inst = Orange.data.Instance(model.domain, raw_input)
+        # 데이터 형식 변환
+        inst = Orange.data.Instance(model.domain, input_list)
         
-        # [해결 2] 신경망 전용 결과 추출법
-        # 신경망은 결과가 리스트 안에 들어있으므로 [0]을 통해 '스칼라' 값으로 변환합니다.
+        # 예측 수행
         prediction = model(inst)
-        pred_value = int(prediction[0]) # 리스트의 첫 번째 값 추출
-        
         probs = model(inst, ret=Orange.classification.Model.ValueProbs)
-        risk_percent = float(probs[0][1]) * 100 # 우울(1)일 확률
+        
+        # [해결] 결과값 추출 (랜덤 포레스트용)
+        # prediction[0]은 예측 클래스(0 또는 1), probs[1]은 우울증일 확률입니다.
+        pred_value = int(prediction[0])
+        risk_prob = float(probs[1]) * 100
 
-        # 3. 결과 표시
+        # 6. 결과 출력
         st.divider()
         if pred_value == 1:
-            st.error(f"⚠️ 현재 마음 날씨는 '흐림'입니다. (우울 위험: {risk_percent:.1f}%)")
+            st.error(f"⚠️ 현재 마음 날씨는 '흐림'입니다. (우울 위험 확률: {risk_prob:.1f}%)")
+            st.write("조금 쉬어가도 괜찮아요. 친구나 상담 센터와 이야기를 나눠보는 건 어떨까요?")
         else:
-            st.success(f"☀️ 현재 마음 날씨는 '맑음'입니다. (안정 확률: {100-risk_percent:.1f}%)")
+            st.success(f"☀️ 현재 마음 날씨는 '맑음'입니다. (안정 확률: {100-risk_prob:.1f}%)")
+            st.write("당신의 마음은 아주 건강한 상태입니다! 오늘 하루도 화이팅하세요.")
 
     except Exception as e:
-        st.error(f"오류: {e}")
+        st.error(f"분석 중 오류가 발생했습니다: {e}")
+        st.info("모델 파일(.pkcls)이 깃허브에 정상적으로 업로드되었는지 확인해 주세요.")
