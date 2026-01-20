@@ -5,42 +5,47 @@ import numpy as np
 # 1. 저장한 모델 불러오기
 def load_model():
     with open('depression_model.pkcls', 'rb') as f:
-        model = pickle.load(f)
-    return model
+        data = pickle.load(f)
+    return data
 
 model_data = load_model()
-model = model_data.model # Orange3 저장 파일에서 실제 모델 객체 추출
+
+# Orange3 모델 파일 구조에 따라 모델 추출
+# 만약 model_data가 바로 모델 객체가 아니라면 아래와 같이 처리합니다.
+if hasattr(model_data, 'model'):
+    model = model_data.model
+else:
+    model = model_data
 
 # 2. 앱 UI 꾸미기
 st.title("🌱 청소년 마음건강 지킴이")
-st.subheader("여러분의 생활 습관을 통해 현재 마음 상태를 확인해보세요.")
 
-# 3. 사용자 입력 받기 (오렌지3에서 Feature로 설정했던 항목들)
+# 3. 사용자 입력 받기 (학습시킨 7개 Feature 순서와 동일해야 합니다)
+# Age, Gender, Sleep_Duration, Study_Hours, Social_Media, Physical_Activity, Stress_Level
 age = st.number_input("나이", min_value=13, max_value=19, value=17)
-gender = st.selectbox("성별", ["Male", "Female"])
-sleep = st.slider("하루 평균 수면 시간 (시간)", 0, 12, 7)
-study = st.slider("하루 평균 학습 시간 (시간)", 0, 15, 5)
-media = st.slider("소셜 미디어 사용 시간 (시간)", 0, 10, 2)
-active = st.slider("신체 활동 시간 (분)", 0, 120, 30)
-stress = st.select_slider("현재 느끼는 스트레스 지수", options=[1, 2, 3, 4, 5])
+gender = st.selectbox("성별", ["Female", "Male"]) # Orange3는 알파벳 순서(0: Female, 1: Male)
+sleep = st.number_input("하루 평균 수면 시간 (시간)", 0, 12, 7)
+study = st.number_input("하루 평균 학습 시간 (시간)", 0, 15, 5)
+media = st.number_input("소셜 미디어 사용 시간 (시간)", 0, 10, 2)
+active = st.number_input("신체 활동 시간 (분)", 0, 120, 30)
+stress = st.slider("현재 느끼는 스트레스 지수", 1, 5, 3)
 
-# 4. 예측 및 피드백
+# 4. 예측 실행
 if st.button("결과 확인하기"):
-    # 성별을 숫자로 변환 (Orange3 학습 시 설정에 맞춰야 함)
     gender_val = 1 if gender == "Male" else 0
     
-    # 입력 데이터를 모델 형식으로 변환
-    input_data = np.array([[age, gender_val, sleep, study, media, active, stress]])
-    prediction = model.predict(input_data)
+    # 입력 데이터를 리스트로 만들기
+    features = [age, gender_val, sleep, study, media, active, stress]
+    
+    # 예측 수행
+    prediction = model.predict([features])
     
     st.divider()
     
-    if prediction[0] == True:
+    # 결과 출력 (Orange3에서 Depression의 Target 값이 True/False이므로)
+    if prediction[0] == "True" or prediction[0] == 1:
         st.warning("⚠️ 마음이 조금 지쳐 있는 것 같아요.")
-        st.write("### 💡 힐링 처방법")
-        st.write("- **잠깐의 휴식:** 오늘 밤은 평소보다 1시간 일찍 자보는 건 어떨까요?")
-        st.write("- **가벼운 산책:** 10분만 햇볕을 쬐며 걸어보세요. 기분이 훨씬 좋아질 거예요.")
+        st.info("💡 처방전: 오늘 밤은 1시간만 일찍 자고, 좋아하는 음악을 들어보는 건 어떨까요?")
     else:
         st.success("✅ 마음이 아주 건강한 상태입니다!")
-        st.write("### 💡 건강 유지 팁")
-        st.write("- 지금처럼 규칙적인 수면과 활동량을 유지해 주세요!")
+        st.info("💡 유지 팁: 지금처럼 규칙적인 생활을 이어가면 아주 좋아요!")
